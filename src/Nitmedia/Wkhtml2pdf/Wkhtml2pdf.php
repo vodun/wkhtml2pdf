@@ -1,4 +1,6 @@
-<?php namespace Nitmedia\Wkhtml2pdf;
+<?php
+
+namespace Nitmedia\Wkhtml2pdf;
 
 use \Exception;
 
@@ -25,7 +27,6 @@ use \Exception;
  * When using output() the mode param takes one of 4 values:
  *
  * 'D'  (const MODE_DOWNLOAD = 'D')  - Force the client to download PDF file
- * 'S'  (const MODE_STRING = 'S')    - Returns the PDF file as a string
  * 'I'  (const MODE_EMBEDDED = 'I')  - When possible, force the client to embed PDF file
  * 'F'  (const MODE_SAVE = 'F')      - PDF file is saved on the server. The path+filename is returned.
  *
@@ -36,8 +37,8 @@ use \Exception;
 /**
  * @version 2
  */
-class Wkhtml2pdf
-{
+class Wkhtml2pdf {
+
     /**
      * Setters / getters properties
      */
@@ -45,6 +46,7 @@ class Wkhtml2pdf
     protected $_html = null;
     protected $_httpurl = null;
     protected $_orientation = null;
+    protected $_public_path = 'temp';
     protected $_pageSize = null;
     protected $_toc = false;
     protected $_copies = 1;
@@ -134,96 +136,79 @@ class Wkhtml2pdf
      * @throws \Exception
      * @return \Nitmedia\Wkhtml2pdf\Wkhtml2pdf FALSE on failure
      */
-    public function __construct(ConfigInterface $config, ViewInterface $view)
-    {
+    public function __construct(ConfigInterface $config, ViewInterface $view) {
         $this->config = $config;
         $this->view = $view;
 
-        if ($this->config->get('Wkhtml2pdf::binpath'))
-        {
-            if($this->config->get('Wkhtml2pdf::binpath')[0] == '/')
-            {
+        if ($this->config->get('Wkhtml2pdf::binpath')) {
+            if ($this->config->get('Wkhtml2pdf::binpath')[0] == '/') {
                 $this->setBinPath($this->config->get('Wkhtml2pdf::binpath'));
-            }
-            else
-            {
-                $this->setBinPath( realpath(__DIR__) . '/' . $this->config->get('Wkhtml2pdf::binpath'));
+            } else {
+                $this->setBinPath(realpath(__DIR__) . '/' . $this->config->get('Wkhtml2pdf::binpath'));
             }
         }
 
-        if ($this->config->get('Wkhtml2pdf::binfile'))
-        {
+        if ($this->config->get('Wkhtml2pdf::publictmp')) {
+            $this->setPublicPath($this->config->get('Wkhtml2pdf::publictmp'));
+        }
+
+
+        if ($this->config->get('Wkhtml2pdf::binfile')) {
             $this->setBinFile($this->config->get('Wkhtml2pdf::binfile'));
         }
 
         /* Check the binary executable exists */
         $this->getBin();
 
-        if ($this->config->get('Wkhtml2pdf::html'))
-        {
+        if ($this->config->get('Wkhtml2pdf::html')) {
             $this->setHtml($this->config->get('html'));
         }
 
-        if ($this->config->get('Wkhtml2pdf::orientation'))
-        {
+        if ($this->config->get('Wkhtml2pdf::orientation')) {
             $this->setOrientation($this->config->get('Wkhtml2pdf::orientation'));
-        }
-        else
-        {
+        } else {
             $this->setOrientation(self::ORIENTATION_PORTRAIT);
         }
 
-        if ($this->config->get('Wkhtml2pdf::page_size'))
-        {
+        if ($this->config->get('Wkhtml2pdf::page_size')) {
             $this->setPageSize($this->config->get('Wkhtml2pdf::page_size'));
-        }
-        else
-        {
+        } else {
             $this->setPageSize(self::SIZE_A4);
         }
 
-        if ($this->config->get('Wkhtml2pdf::toc'))
-        {
+        if ($this->config->get('Wkhtml2pdf::toc')) {
             $this->setTOC($this->config->get('Wkhtml2pdf::toc'));
         }
 
-        if ($this->config->get('Wkhtml2pdf::grayscale'))
-        {
+        if ($this->config->get('Wkhtml2pdf::grayscale')) {
             $this->setGrayscale($this->config->get('Wkhtml2pdf::grayscale'));
         }
 
-        if ($this->config->get('Wkhtml2pdf::title'))
-        {
+        if ($this->config->get('Wkhtml2pdf::title')) {
             $this->setTitle($this->config->get('Wkhtml2pdf::title'));
         }
 
-        if ($this->config->get('Wkhtml2pdf::debug'))
-        {
+        if ($this->config->get('Wkhtml2pdf::debug')) {
             $this->debug = $this->config->get('Wkhtml2pdf::debug');
         }
 
-        if ($this->config->get('Wkhtml2pdf::header_html'))
-        {
+        if ($this->config->get('Wkhtml2pdf::header_html')) {
             $this->setHeaderHtml($this->config->get('Wkhtml2pdf::header_html'));
         }
 
-        if ($this->config->get('Wkhtml2pdf::footer_html'))
-        {
+        if ($this->config->get('Wkhtml2pdf::footer_html')) {
             $this->setFooterHtml($this->config->get('Wkhtml2pdf::footer_html'));
         }
 
-        if ($this->config->get('Wkhtml2pdf::tmppath'))
-        {
+        if ($this->config->get('Wkhtml2pdf::tmppath')) {
             $this->setTmpPath($this->config->get('Wkhtml2pdf::tmppath'));
         }
 
-        if ($this->config->get('Wkhtml2pdf::output_mode'))
-        {
+        if ($this->config->get('Wkhtml2pdf::output_mode')) {
             $this->setOutputMode($this->config->get('Wkhtml2pdf::output_mode'));
         }
 
-        if ($this->config->get('Wkhtml2pdf::options'))
-        {
+        if ($this->config->get('Wkhtml2pdf::options')) {
             $this->setOptions($this->config->get('Wkhtml2pdf::options'));
         }
     }
@@ -234,14 +219,17 @@ class Wkhtml2pdf
      * @param string $name
      * @throws \Exception
      */
-    public function html($view, $data= array(), $name='file')
-    {
-        $this->setHtml($this->view->make($view,$data));
+    public function html($view, $data = array(), $name = 'file', $outputtype = 0) {
+        if ($outputtype !== 0)
+            $this->setOutputMode($outputtype);
+
+        $this->setHtml($this->view->make($view, $data));
         return $this->output($this->getOutputMode(), $name . ".pdf");
     }
 
-    public function url($url, $name='file')
-    {
+    public function url($url, $name = 'file', $outputtype = 0) {
+        if ($outputtype !== 0)
+            $this->setOutputMode($outputtype);
         $this->setHttpUrl($url);
         return $this->output($this->getOutputMode(), $name . ".pdf");
     }
@@ -251,8 +239,7 @@ class Wkhtml2pdf
      *
      * @return string
      */
-    public function getHelp()
-    {
+    public function getHelp() {
         $r = $this->_exec($this->getBin() . " --extended-help");
         return $r['stdout'];
     }
@@ -263,12 +250,11 @@ class Wkhtml2pdf
      * @throws Exception
      * @return null
      */
-    public function setBinPath($path)
-    {
+    public function setBinPath($path) {
         if (realpath($path) === false)
-            throw new Exception('Path must be absolute ("'.htmlspecialchars($path,ENT_QUOTES).'")');
+            throw new Exception('Path must be absolute ("' . htmlspecialchars($path, ENT_QUOTES) . '")');
 
-        $this->_binpath = realpath((string)$path) . DIRECTORY_SEPARATOR;
+        $this->_binpath = realpath((string) $path) . DIRECTORY_SEPARATOR;
         return;
     }
 
@@ -277,8 +263,7 @@ class Wkhtml2pdf
      *
      * @return string
      */
-    public function getBinPath()
-    {
+    public function getBinPath() {
         return $this->_binpath;
     }
 
@@ -287,9 +272,8 @@ class Wkhtml2pdf
      *
      * @return null
      */
-    public function setBinFile($name)
-    {
-        $this->_binname = (string)$name;
+    public function setBinFile($name) {
+        $this->_binname = (string) $name;
         return;
     }
 
@@ -298,8 +282,7 @@ class Wkhtml2pdf
      *
      * @return string
      */
-    public function getBinFile()
-    {
+    public function getBinFile() {
         return $this->_binname;
     }
 
@@ -309,14 +292,13 @@ class Wkhtml2pdf
      * @throws Exception
      * @return string
      */
-    public function getBin()
-    {
+    public function getBin() {
         $bin = $this->getBinPath() . $this->getBinFile();
 
         if (realpath($bin) === false)
-            throw new Exception('Path must be absolute ("'.htmlspecialchars($bin,ENT_QUOTES).'")');
+            throw new Exception('Path must be absolute ("' . htmlspecialchars($bin, ENT_QUOTES) . '")');
         if (file_exists($bin) === false)
-            throw new Exception('WKPDF static executable "'.htmlspecialchars($bin,ENT_QUOTES).'" was not found');
+            throw new Exception('WKPDF static executable "' . htmlspecialchars($bin, ENT_QUOTES) . '" was not found');
 
         return $bin;
     }
@@ -328,10 +310,9 @@ class Wkhtml2pdf
      * @param string $path
      * @return null
      */
-    public function setTmpPath($path)
-    {
+    public function setTmpPath($path) {
         if (realpath($path) === false)
-            throw new Exception('Path must be absolute ("'.htmlspecialchars($path,ENT_QUOTES).'")');
+            throw new Exception('Path must be absolute ("' . htmlspecialchars($path, ENT_QUOTES) . '")');
 
         $this->_tmpfilepath = realpath($path) . DIRECTORY_SEPARATOR;
         return;
@@ -342,9 +323,8 @@ class Wkhtml2pdf
      *
      * @return string
      */
-    public function getTmpPath()
-    {
-        return $this->_tmpfilepath;
+    public function getTmpPath() {
+        return storage_path() . $this->_tmpfilepath;
     }
 
     /**
@@ -354,8 +334,7 @@ class Wkhtml2pdf
      * @param string $mode
      * @return null
      */
-    public function setOutputMode($mode)
-    {
+    public function setOutputMode($mode) {
         $this->_outputMode = $mode;
         return;
     }
@@ -365,8 +344,7 @@ class Wkhtml2pdf
      *
      * @return string
      */
-    public function getOutputMode()
-    {
+    public function getOutputMode() {
         return $this->_outputMode;
     }
 
@@ -377,10 +355,9 @@ class Wkhtml2pdf
      * @param string $path
      * @return null
      */
-    public function setHtmlPath($path)
-    {
+    public function setHtmlPath($path) {
         if (realpath($path) === false)
-            throw new Exception('Path must be absolute ("'.htmlspecialchars($path,ENT_QUOTES).'")');
+            throw new Exception('Path must be absolute ("' . htmlspecialchars($path, ENT_QUOTES) . '")');
 
         $this->_htmlfilepath = realpath($path) . DIRECTORY_SEPARATOR;
         return;
@@ -391,8 +368,7 @@ class Wkhtml2pdf
      *
      * @return string
      */
-    public function getHtmlPath()
-    {
+    public function getHtmlPath() {
         return $this->_htmlfilepath;
     }
 
@@ -401,9 +377,8 @@ class Wkhtml2pdf
      *
      * @return null
      */
-    public function setHtmlFile($name)
-    {
-        $this->_htmlfilename = (string)$name;
+    public function setHtmlFile($name) {
+        $this->_htmlfilename = (string) $name;
         $this->_have_htmlfile = true;
         return;
     }
@@ -413,8 +388,7 @@ class Wkhtml2pdf
      *
      * @return string
      */
-    public function getHtmlFile()
-    {
+    public function getHtmlFile() {
         return $this->_htmlfilename;
     }
 
@@ -424,14 +398,13 @@ class Wkhtml2pdf
      * @throws Exception
      * @return string
      */
-    public function getHtmlPathFile()
-    {
+    public function getHtmlPathFile() {
         $file = $this->getHtmlPath() . $this->getHtmlFile();
 
         if (realpath($file) === false)
-            throw new Exception('Path must be absolute ("'.htmlspecialchars($file,ENT_QUOTES).'")');
+            throw new Exception('Path must be absolute ("' . htmlspecialchars($file, ENT_QUOTES) . '")');
         if (file_exists($file) === false)
-            throw new Exception('HTML file "'.htmlspecialchars($file,ENT_QUOTES).'" was not found');
+            throw new Exception('HTML file "' . htmlspecialchars($file, ENT_QUOTES) . '" was not found');
 
         return $file;
     }
@@ -442,9 +415,8 @@ class Wkhtml2pdf
      * @param string $orientation
      * @return null
      */
-    public function setOrientation($orientation)
-    {
-        $this->_orientation = (string)$orientation;
+    public function setOrientation($orientation) {
+        $this->_orientation = (string) $orientation;
         return;
     }
 
@@ -453,9 +425,17 @@ class Wkhtml2pdf
      *
      * @return string
      */
-    public function getOrientation()
-    {
+    public function getOrientation() {
         return $this->_orientation;
+    }
+
+    public function setPublicPath($pp) {
+        $this->_public_path = (string) $pp;
+        return;
+    }
+
+    public function getPublicPath() {
+        return $this->_public_path;
     }
 
     /**
@@ -463,9 +443,8 @@ class Wkhtml2pdf
      * @param string $size
      * @return null
      */
-    public function setPageSize($size)
-    {
-        $this->_pageSize = (string)$size;
+    public function setPageSize($size) {
+        $this->_pageSize = (string) $size;
         return;
     }
 
@@ -474,8 +453,7 @@ class Wkhtml2pdf
      *
      * @return int
      */
-    public function getPageSize()
-    {
+    public function getPageSize() {
         return $this->_pageSize;
     }
 
@@ -485,9 +463,8 @@ class Wkhtml2pdf
      * @param boolean $toc
      * @return Wkhtmltopdf
      */
-    public function setTOC($toc = true)
-    {
-        $this->_toc = (boolean)$toc;
+    public function setTOC($toc = true) {
+        $this->_toc = (boolean) $toc;
         return;
     }
 
@@ -496,8 +473,7 @@ class Wkhtml2pdf
      *
      * @return boolean
      */
-    public function getTOC()
-    {
+    public function getTOC() {
         return $this->_toc;
     }
 
@@ -507,9 +483,8 @@ class Wkhtml2pdf
      * @param int $copies
      * @return null
      */
-    public function setCopies($copies)
-    {
-        $this->_copies = (int)$copies;
+    public function setCopies($copies) {
+        $this->_copies = (int) $copies;
         return;
     }
 
@@ -518,8 +493,7 @@ class Wkhtml2pdf
      *
      * @return int
      */
-    public function getCopies()
-    {
+    public function getCopies() {
         return $this->_copies;
     }
 
@@ -529,9 +503,8 @@ class Wkhtml2pdf
      * @param boolean $mode
      * @return null
      */
-    public function setGrayscale($mode)
-    {
-        $this->_grayscale = (boolean)$mode;
+    public function setGrayscale($mode) {
+        $this->_grayscale = (boolean) $mode;
         return;
     }
 
@@ -540,8 +513,7 @@ class Wkhtml2pdf
      *
      * @return boolean
      */
-    public function getGrayscale()
-    {
+    public function getGrayscale() {
         return $this->_grayscale;
     }
 
@@ -551,9 +523,8 @@ class Wkhtml2pdf
      * @param string $title
      * @return null
      */
-    public function setTitle($title)
-    {
-        $this->_title = (string)$title;
+    public function setTitle($title) {
+        $this->_title = (string) $title;
         return;
     }
 
@@ -563,8 +534,7 @@ class Wkhtml2pdf
      * @throws Exception
      * @return string
      */
-    public function getTitle()
-    {
+    public function getTitle() {
         return $this->_title;
     }
 
@@ -574,9 +544,8 @@ class Wkhtml2pdf
      * @param string $header
      * @return null
      */
-    public function setHeaderHtml($header)
-    {
-        $this->_headerHtml = (string)$header;
+    public function setHeaderHtml($header) {
+        $this->_headerHtml = (string) $header;
         $this->_have_headerhtml = true;
         return;
     }
@@ -586,8 +555,7 @@ class Wkhtml2pdf
      *
      * @return string
      */
-    public function getHeaderHtml()
-    {
+    public function getHeaderHtml() {
         return $this->_headerHtml;
     }
 
@@ -597,9 +565,8 @@ class Wkhtml2pdf
      * @param string $footer
      * @return null
      */
-    public function setFooterHtml($footer)
-    {
-        $this->_footerHtml = (string)$footer;
+    public function setFooterHtml($footer) {
+        $this->_footerHtml = (string) $footer;
         $this->_have_footerhtml = true;
         return;
     }
@@ -609,8 +576,7 @@ class Wkhtml2pdf
      *
      * @return string
      */
-    public function getFooterHtml()
-    {
+    public function getFooterHtml() {
         return $this->_footerHtml;
     }
 
@@ -620,9 +586,8 @@ class Wkhtml2pdf
      * @param string $username
      * @return null
      */
-    public function setUsername($username)
-    {
-        $this->_httpusername = (string)$username;
+    public function setUsername($username) {
+        $this->_httpusername = (string) $username;
         return;
     }
 
@@ -631,8 +596,7 @@ class Wkhtml2pdf
      *
      * @return string
      */
-    public function getUsername()
-    {
+    public function getUsername() {
         return $this->_httpusername;
     }
 
@@ -642,9 +606,8 @@ class Wkhtml2pdf
      * @param string $password
      * @return null
      */
-    public function setPassword($password)
-    {
-        $this->_httppassword = (string)$password;
+    public function setPassword($password) {
+        $this->_httppassword = (string) $password;
         return;
     }
 
@@ -653,8 +616,7 @@ class Wkhtml2pdf
      *
      * @return string
      */
-    public function getPassword()
-    {
+    public function getPassword() {
         return $this->_httppassword;
     }
 
@@ -664,8 +626,7 @@ class Wkhtml2pdf
      * @param string $options
      * @return null
      */
-    public function setOptions($options)
-    {
+    public function setOptions($options) {
         $this->_options = $options;
         return;
     }
@@ -675,8 +636,7 @@ class Wkhtml2pdf
      *
      * @return string
      */
-    public function getOptions()
-    {
+    public function getOptions() {
         return $this->_options;
     }
 
@@ -686,8 +646,7 @@ class Wkhtml2pdf
      * @param string $html
      * @return null
      */
-    public function setHttpUrl($url)
-    {
+    public function setHttpUrl($url) {
         $this->_httpurl = (string) $url;
         $this->_have_httpurl = true;
         return;
@@ -698,8 +657,7 @@ class Wkhtml2pdf
      *
      * @return string
      */
-    public function getHttpUrl()
-    {
+    public function getHttpUrl() {
         return $this->_httpurl;
     }
 
@@ -709,9 +667,8 @@ class Wkhtml2pdf
      * @param string $html
      * @return null
      */
-    public function setHtml($html)
-    {
-        $this->_html = (string)$html;
+    public function setHtml($html) {
+        $this->_html = (string) $html;
         $this->_have_html = true;
         return;
     }
@@ -721,8 +678,7 @@ class Wkhtml2pdf
      *
      * @return string
      */
-    public function getHtml()
-    {
+    public function getHtml() {
         return $this->_html;
     }
 
@@ -731,8 +687,7 @@ class Wkhtml2pdf
      *
      * @return string   Full path to file
      */
-    protected function _createFile($html)
-    {
+    protected function _createFile($html) {
         $file = $this->_makeFilename();
 
         file_put_contents($file, $html);
@@ -747,19 +702,18 @@ class Wkhtml2pdf
      * @throws Exception
      * @return string
      */
-    protected function _makeFilename()
-    {
+    protected function _makeFilename() {
         if (($path = $this->getTmpPath()) == '') {
             throw new Exception("Path to directory where to store files is not set");
         }
         if (realpath($path) === false)
-            throw new Exception('Path must be absolute ("'.htmlspecialchars($path,ENT_QUOTES).'")');
+            throw new Exception('Path must be absolute ("' . htmlspecialchars($path, ENT_QUOTES) . '")');
 
         do {
             $file = mt_rand() . '.html';
-        } while(file_exists($path.$file));
+        } while (file_exists($path . $file));
 
-        return $path.$file;
+        return $path . $file;
     }
 
     /**
@@ -768,11 +722,9 @@ class Wkhtml2pdf
      * @param string fn Filename to delete (optional)
      * @return null
      */
-    protected function _deleteFile($fn='')
-    {
+    protected function _deleteFile($fn = '') {
         if ($fn !== '') {
             unlink($fn);
-
         } else {
             // delete our temporary files
             if ($this->_have_html && $this->_tmphtmlfilename) {
@@ -795,8 +747,7 @@ class Wkhtml2pdf
      * @param string    filename of input html
      * @return string
      */
-    protected function _getCommand($in)
-    {
+    protected function _getCommand($in) {
         $command = '';
         $command = $this->getBin();
 
@@ -820,7 +771,7 @@ class Wkhtml2pdf
             // $command .= ' --load-error-handling ignore';
         }
 
-        $command .= ' "'.$in.'" ';
+        $command .= ' "' . $in . '" ';
         $command .= " -";
 
         return $command;
@@ -834,34 +785,26 @@ class Wkhtml2pdf
      * @throws Exception
      * @return string
      */
-    protected function _render()
-    {
-        if ($this->_have_httpurl)
-        {                                                                                                             // source is url
+    protected function _render() {
+        if ($this->_have_httpurl) {                                                                                                             // source is url
             $input = $this->getHttpUrl();
         }
         // source is predefined disc file
-        elseif ($this->_have_htmlfile)
-        {
+        elseif ($this->_have_htmlfile) {
             $input = $this->getHtmlPathFile();
         }
         // source is html string
-        elseif ($this->_have_html)
-        {
+        elseif ($this->_have_html) {
             $input = $this->_tmphtmlfilename = $this->_createFile($this->getHtml());
-        }
-        else
-        {
+        } else {
             throw new Exception("HTML content or source URL not set");
         }
 
-        if ($this->_have_headerhtml)
-        {
+        if ($this->_have_headerhtml) {
             $this->_headerfilename = $this->_createFile($this->getHeaderHtml());
         }
 
-        if ($this->_have_footerhtml)
-        {
+        if ($this->_have_footerhtml) {
             $this->_footerfilename = $this->_createFile($this->getFooterHtml());
         }
 
@@ -869,8 +812,7 @@ class Wkhtml2pdf
 
         $content = $this->_pipeExec($command);
 
-        if($this->config->get('Wkhtml2pdf::debug'))
-        {
+        if ($this->config->get('Wkhtml2pdf::debug')) {
             dd(array(
                 'input' => $input,
                 'command' => $command,
@@ -886,7 +828,7 @@ class Wkhtml2pdf
 
         $data = $content['stdout'];
 
-        return (isset($data)?$data:false);
+        return (isset($data) ? $data : false);
     }
 
     /**
@@ -896,8 +838,7 @@ class Wkhtml2pdf
      * @param string $input other input (not arguments)
      * @return array
      */
-    protected function _exec($cmd, $input = "")
-    {
+    protected function _exec($cmd, $input = "") {
         $result = array('stdout' => '', 'stderr' => '', 'return' => '');
 
         $proc = proc_open($cmd, array(0 => array('pipe', 'r'), 1 => array('pipe', 'w'), 2 => array('pipe', 'w')), $pipes);
@@ -922,64 +863,22 @@ class Wkhtml2pdf
      * @param string $input Any input not in arguments.
      * @return array An array of execution data; stdout, stderr and return "error" code.
      */
-    private static function _pipeExec($cmd, $input='')
-    {
+    private function _pipeExec($cmd, $input = '') {
+        set_time_limit(120);
         $pipes = array();
-        $proc = proc_open($cmd, array(0 => array('pipe', 'r'), 1 => array('pipe', 'w'), 2 => array('pipe', 'w')), $pipes, null, null, array('binary_pipes'=>true));
+        $filename = mt_rand();
+        $filename = public_path() . '\\' . $this->getPublicPath() . '\\' . $filename;
+         $filenamepdf= $filename . '.pdf';
+        $proc = proc_open($cmd, array(0 => array('pipe', 'r'), 1 => array('file',$filenamepdf, 'w'), 2 => array('file',$filename . '.log','w')), $pipes, null, null, array('binary_pipes' => true));
         fwrite($pipes[0], $input);
         fclose($pipes[0]);
 
         // From http://php.net/manual/en/function.proc-open.php#89338
-        $read_output = $read_error = false;
-        $buffer_len  = $prev_buffer_len = 0;
-        $ms          = 10;
-        $stdout      = '';
-        $read_output = true;
-        $stderr      = '';
-        $read_error  = true;
-        stream_set_blocking($pipes[1], 0);
-        stream_set_blocking($pipes[2], 0);
 
-        // dual reading of STDOUT and STDERR stops one full pipe blocking the other, because the external script is waiting
-        while ($read_error != false or $read_output != false){
-            if ($read_output != false){
-                if(feof($pipes[1])){
-                    fclose($pipes[1]);
-                    $read_output = false;
-                } else {
-                    $str = fgets($pipes[1], 1024);
-                    $len = strlen($str);
-                    if ($len){
-                        $stdout .= $str;
-                        $buffer_len += $len;
-                    }
-                }
-            }
 
-            if ($read_error != false){
-                if(feof($pipes[2])){
-                    fclose($pipes[2]);
-                    $read_error = false;
-                } else {
-                    $str = fgets($pipes[2], 1024);
-                    $len = strlen($str);
-                    if ($len){
-                        $stderr .= $str;
-                        $buffer_len += $len;
-                    }
-                }
-            }
 
-            if ($buffer_len > $prev_buffer_len){
-                $prev_buffer_len = $buffer_len;
-                $ms = 10;
-            } else {
-                usleep($ms * 1000); // sleep for $ms milliseconds
-                if ($ms < 160){
-                    $ms = $ms * 2;
-                }
-            }
-        }
+        $stdout = $filename;
+        $stderr = $filename . '.log';
 
         $rtn = proc_close($proc);
         return array(
@@ -995,34 +894,32 @@ class Wkhtml2pdf
      * @param int $mode                 How to output (constants from this same class - c.f. 'PDF get modes')
      * @param string $filename  The PDF's filename (usage depends on $mode)
      */
-    public function output($mode, $filename='')
-    {
+    public function output($mode, $filename = '') {
         switch ($mode) {
             case self::MODE_DOWNLOAD:
                 if (!headers_sent()) {
-                    $result = $this->_render();
-                    header("Content-Description: File Transfer");
-                    header("Cache-Control: public; must-revalidate, max-age=0"); // HTTP/1.1
-                    header("Pragme: public");
-                    header("Expires: Sat, 26 Jul 1997 05:00:00 GMT"); // Date in the past
-                    header("Last-Modified: " . gmdate('D, d m Y H:i:s') . " GMT");
-                    header("Content-Type: application/force-download");
-                    header("Content-Type: application/octet-stream", false);
-                    header("Content-Type: application/download", false);
-                    header("Content-Type: application/pdf", false);
-                    header('Content-Disposition: attachment; filename="' . basename($filename) .'";');
-                    header("Content-Transfer-Encoding: binary");
-                    header("Content-Length:" . strlen($result));
-                    echo $result;
+                    $resultfn = $this->_render();
+
+                      header("Content-Description: File Transfer");
+                      header("Cache-Control: public; must-revalidate, max-age=0"); // HTTP/1.1
+                      header("Pragme: public");
+                      header("Expires: Sat, 26 Jul 1997 05:00:00 GMT"); // Date in the past
+                      header("Last-Modified: " . gmdate('D, d m Y H:i:s') . " GMT");
+                      header("Content-Type: application/force-download");
+                      header("Content-Type: application/octet-stream", false);
+                      header("Content-Type: application/download", false);
+                      header("Content-Type: application/pdf", false);
+                      header('Content-Disposition: attachment; filename="' . basename($filename) . '";');
+                      header("Content-Transfer-Encoding: binary");
+
+                    readfile($resultfn.".pdf");
                     $this->_deleteFile();
                     exit();
                 } else {
                     throw new Exception("Headers already sent");
                 }
                 break;
-            case self::MODE_STRING:
-                return $this->_render();
-                break;
+          
             case self::MODE_EMBEDDED:
                 if (!headers_sent()) {
                     $result = $this->_render();
@@ -1031,9 +928,8 @@ class Wkhtml2pdf
                     header("Pragme: public");
                     header("Expires: Sat, 26 Jul 1997 05:00:00 GMT"); // Date in the past
                     header("Last-Modified: " . gmdate('D, d m Y H:i:s') . " GMT");
-                    header("Content-Length: " . strlen($result));
-                    header('Content-Disposition: inline; filename="' . basename($filename) .'";');
-                    echo $result;
+                    header('Content-Disposition: inline; filename="' . basename($filename) . '";');
+                    readfile($result.".pdf");  
                     $this->_deleteFile();
                     exit();
                 } else {
@@ -1041,7 +937,8 @@ class Wkhtml2pdf
                 }
                 break;
             case self::MODE_SAVE:
-                file_put_contents($filename, $this->_render());
+                 $result = $this->_render();
+                echo (url('/') .'/'. $this->getPublicPath() .'/' .basename($result.".pdf"));
                 $this->_deleteFile();
                 break;
             default:
@@ -1050,4 +947,5 @@ class Wkhtml2pdf
 
         return TRUE;
     }
+
 }

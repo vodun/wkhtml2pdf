@@ -1,6 +1,8 @@
 wkhtml2pdf
 ==========
 Version 1.0 - Laravel 4 - Html to PDF Composer Package
+19-06-2014 #vodun add param to download or get url to file
+	example:  PDF::url('http://google.com','jj','F');  get url google.com with filename jj and return href to file pdf
 
 #Usage#
 
@@ -11,6 +13,9 @@ Version 1.0 - Laravel 4 - Html to PDF Composer Package
 	return PDF::html('hello',array('name' => 'Nithin'), 'New File'); // thrid option is for the name of the pdf file thats generated
 
 	PDF::url('http://google.com'); // Pdf from url
+	
+	#vodun add param to download or get url to file
+	example:  PDF::url('http://google.com','jj','F');  get url google.com with filename jj and return href to file pdf
 
 ## Quick start
 
